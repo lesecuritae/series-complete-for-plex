@@ -167,6 +167,13 @@ function getOpenaiBaseUrl() {
     return apiConfig.openai?.baseURL || process.env.OPENAI_BASE_URL || undefined;
 }
 
+// Lets a non-OpenAI-compatible endpoint (which won't have a "gpt-3.5-turbo"
+// model) specify its own model id. Defaults to the original hardcoded model
+// so behavior is unchanged when pointed at the real OpenAI API.
+function getOpenaiModel() {
+    return apiConfig.openai?.model || process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
+}
+
 function getOmdbApiKey() {
     return apiConfig.omdb?.apiKey || '';
 }
@@ -816,7 +823,7 @@ Return only valid JSON with actual numbers and boolean:
                 
                 const response = await rateLimiter.throttle('openai', async () => {
                     return await openai.chat.completions.create({
-                        model: 'gpt-3.5-turbo',
+                        model: getOpenaiModel(),
                         messages: [{ role: 'user', content: prompt }],
                         temperature: 0,
                         max_tokens: 200
@@ -948,7 +955,7 @@ Return only valid JSON with actual numbers and boolean:
             // Use rate limiter for OpenAI API calls
             const response = await rateLimiter.throttle('openai', async () => {
                 return await openai.chat.completions.create({
-                    model: 'gpt-3.5-turbo',
+                    model: getOpenaiModel(),
                     messages: [{ role: 'user', content: prompt }],
                     temperature: 0,
                     max_tokens: 200
@@ -1145,11 +1152,14 @@ async function testOpenAiApi() {
         });
         
         const response = await openai.models.list();
-        const hasGpt35 = response.data.some(model => model.id.includes('gpt-3.5'));
-        
+        const configuredModel = getOpenaiModel();
+        // A non-OpenAI-compatible gateway won't have a "gpt-3.5"-named model;
+        // succeed if it serves the model this app is actually configured to use.
+        const hasConfiguredModel = response.data.some(model => model.id === configuredModel);
+
         return {
-            success: hasGpt35,
-            error: hasGpt35 ? null : 'GPT-3.5 model not available'
+            success: hasConfiguredModel,
+            error: hasConfiguredModel ? null : `Model "${configuredModel}" not available at this endpoint`
         };
     } catch (error) {
         return {
