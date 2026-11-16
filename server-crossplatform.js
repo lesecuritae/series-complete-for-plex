@@ -1291,7 +1291,7 @@ app.get('/api/settings', async (req, res) => {
 
 app.post('/api/settings', validateApiKeys, async (req, res) => {
   try {
-    const { tmdb, thetvdb, thetvdbPin, openai, omdb } = req.body;
+    const { tmdb, thetvdb, thetvdbPin, openai, openaiBaseUrl, omdb } = req.body;
 
     // Ensure config is loaded
     await config.init();
@@ -1314,7 +1314,19 @@ app.post('/api/settings', validateApiKeys, async (req, res) => {
     }
     
     if (openai && openai.trim()) {
+      // baseURL lets this point at any OpenAI-compatible endpoint (e.g. a
+      // local LLM gateway) instead of paying OpenAI directly for the key
+      // entered here. Leave it blank to use the real OpenAI API.
       apiConfigs.openai = { apiKey: openai.trim(), enabled: true };
+      if (openaiBaseUrl && openaiBaseUrl.trim()) {
+        apiConfigs.openai.baseURL = openaiBaseUrl.trim();
+      }
+    } else if (openaiBaseUrl !== undefined) {
+      // Allow updating just the base URL without changing the API key
+      const currentApis = config.getApiConfigs();
+      if (currentApis.openai?.apiKey) {
+        apiConfigs.openai = { ...currentApis.openai, baseURL: (openaiBaseUrl || '').trim() || undefined };
+      }
     }
     
     if (omdb && omdb.trim()) {

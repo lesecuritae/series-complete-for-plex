@@ -158,6 +158,15 @@ function getOpenaiApiKey() {
     return apiConfig.openai?.apiKey || '';
 }
 
+// Points the OpenAI client at any OpenAI-compatible endpoint (e.g. a local
+// LLM gateway) instead of paying OpenAI directly. Leave unset to keep using
+// the real OpenAI API. apiConfig.openai.baseURL takes precedence so this is
+// configurable from the same place as the API key; OPENAI_BASE_URL is a
+// deployment-level fallback (e.g. set once in compose, no UI edit needed).
+function getOpenaiBaseUrl() {
+    return apiConfig.openai?.baseURL || process.env.OPENAI_BASE_URL || undefined;
+}
+
 function getOmdbApiKey() {
     return apiConfig.omdb?.apiKey || '';
 }
@@ -797,7 +806,8 @@ async function getSeriesMetadata(seriesName, year, specificApi = null) {
                 console.log(`Trying OpenAI fallback for ${seriesName}...`);
                 const OpenAI = require('openai');
                 const openai = new OpenAI({
-                    apiKey: getOpenaiApiKey()
+                    apiKey: getOpenaiApiKey(),
+                    baseURL: getOpenaiBaseUrl()
                 });
                 
                 const prompt = `TV series: ${seriesName}${year ? ` (${year})` : ''}
@@ -927,7 +937,8 @@ async function verifySeriesMetadata(seriesName, year) {
             // Import OpenAI if available
             const OpenAI = require('openai');
             const openai = new OpenAI({
-                apiKey: getOpenaiApiKey() || process.env.OPENAI_API_KEY || ''
+                apiKey: getOpenaiApiKey() || process.env.OPENAI_API_KEY || '',
+                baseURL: getOpenaiBaseUrl()
             });
             
             const prompt = `TV series: ${seriesName}${year ? ` (${year})` : ''}
@@ -1129,7 +1140,8 @@ async function testOpenAiApi() {
         
         const OpenAI = require('openai');
         const openai = new OpenAI({
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseURL: getOpenaiBaseUrl()
         });
         
         const response = await openai.models.list();
